@@ -1,0 +1,33 @@
+name: task_management
+description: "Task management system app"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  dio: ^5.5.0
+  shared_preferences: ^2.2.2
+  provider: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.10.0
+
+# ✅ launcher icon configuration (flutter: block-এর বাইরে)
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "lib/assets/app_icon/task_icon.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - lib/assets/app_icon/task_icon.png
