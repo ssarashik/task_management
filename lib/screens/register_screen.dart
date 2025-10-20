@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 
@@ -69,10 +70,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Mobile
+                // Mobile (limit 11 digits)
                 TextField(
                   controller: mobileController,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(11),
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
                   decoration: _inputDecoration(
                     label: 'Mobile Number',
                     icon: Icons.phone_android,
@@ -193,7 +198,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  InputDecoration _inputDecoration({required String label, required IconData icon}) {
+  InputDecoration _inputDecoration({
+    required String label,
+    required IconData icon,
+  }) {
     return InputDecoration(
       prefixIcon: Icon(icon, color: const Color(0xFF2563EB)),
       labelText: label,

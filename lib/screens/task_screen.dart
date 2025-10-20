@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
-import 'profile_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/project_provider.dart';
+import '../providers/task_provider.dart';
 
 class TaskScreen extends StatefulWidget {
   const TaskScreen({super.key});
@@ -12,25 +13,28 @@ class TaskScreen extends StatefulWidget {
 class _TaskScreenState extends State<TaskScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _estimatedHoursController = TextEditingController();
-  final TextEditingController _workedHoursController = TextEditingController();
 
-  String _taskCategory = 'Low';
-  DateTime? _startDate;
-  DateTime? _endDate;
+  String _taskPriority = 'low';
+  DateTime? _dueDate;
+  String? _selectedProject;
 
-  int _selectedIndex = 1; // Task tab selected by default
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      Provider.of<ProjectProvider>(context, listen: false).fetchProjects();
+      Provider.of<TaskProvider>(context, listen: false).fetchTasks();
+    });
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _estimatedHoursController.dispose();
-    _workedHoursController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDate({required bool isStart}) async {
+  Future<void> _pickDueDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -38,13 +42,7 @@ class _TaskScreenState extends State<TaskScreen> {
       lastDate: DateTime(2100),
     );
     if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-        } else {
-          _endDate = picked;
-        }
-      });
+      setState(() => _dueDate = picked);
     }
   }
 
@@ -52,50 +50,38 @@ class _TaskScreenState extends State<TaskScreen> {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
   }
 
-  void _createTask() {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Task "${_titleController.text}" created'),
-    ));
-    _titleController.clear();
-    _descriptionController.clear();
-    _estimatedHoursController.clear();
-    _workedHoursController.clear();
-    setState(() {
-      _taskCategory = 'Low';
-      _startDate = null;
-      _endDate = null;
-    });
-  }
+  Future<void> _createTask() async {
+    if (_titleController.text.isEmpty || _dueDate == null) return;
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final success = await taskProvider.addTask(
+      title: _titleController.text,
+      description: _descriptionController.text,
+      dueDate: _formatDate(_dueDate!),
+      priority: _taskPriority,
+    );
 
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-        break;
-      case 1:
-      // Stay on TaskScreen
-        break;
-      case 2:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
-        );
-        break;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Task created successfully')),
+      );
+      _titleController.clear();
+      _descriptionController.clear();
+      setState(() {
+        _taskPriority = 'low';
+        _dueDate = null;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final projectProvider = Provider.of<ProjectProvider>(context);
+    final taskProvider = Provider.of<TaskProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Task'),
+        title: const Text('Tasks'),
         backgroundColor: Colors.blueAccent,
       ),
       body: SingleChildScrollView(
@@ -104,10 +90,34 @@ class _TaskScreenState extends State<TaskScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
+              'All Projects',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedProject,
+              hint: const Text('Select Project'),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: projectProvider.projects
+                  .map(
+                    (p) => DropdownMenuItem(
+                  value: p['id'].toString(),
+                  child: Text(p['name']),
+                ),
+              )
+                  .toList(),
+              onChanged: (val) {
+                setState(() => _selectedProject = val);
+              },
+            ),
+            const SizedBox(height: 20),
+
+            const Text(
               'Create Task',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
+
             TextField(
               controller: _titleController,
               decoration: const InputDecoration(
@@ -116,24 +126,24 @@ class _TaskScreenState extends State<TaskScreen> {
               ),
             ),
             const SizedBox(height: 10),
+
             DropdownButtonFormField<String>(
-              value: _taskCategory,
+              value: _taskPriority,
               decoration: const InputDecoration(
-                labelText: 'Task Category',
+                labelText: 'Priority',
                 border: OutlineInputBorder(),
               ),
               items: const [
-                DropdownMenuItem(value: 'Low', child: Text('Low')),
-                DropdownMenuItem(value: 'Medium', child: Text('Medium')),
-                DropdownMenuItem(value: 'High', child: Text('High')),
+                DropdownMenuItem(value: 'low', child: Text('Low')),
+                DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                DropdownMenuItem(value: 'high', child: Text('High')),
               ],
               onChanged: (val) {
-                setState(() {
-                  _taskCategory = val!;
-                });
+                setState(() => _taskPriority = val!);
               },
             ),
             const SizedBox(height: 10),
+
             TextField(
               controller: _descriptionController,
               maxLines: 3,
@@ -143,84 +153,65 @@ class _TaskScreenState extends State<TaskScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _pickDate(isStart: true),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Start Date',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(_startDate != null ? _formatDate(_startDate!) : ''),
-                    ),
-                  ),
+
+            InkWell(
+              onTap: _pickDueDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Due Date',
+                  border: OutlineInputBorder(),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _pickDate(isStart: false),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'End Date',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(_endDate != null ? _formatDate(_endDate!) : ''),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _estimatedHoursController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Estimated Hours',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _workedHoursController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Worked Hours',
-                border: OutlineInputBorder(),
+                child: Text(_dueDate != null ? _formatDate(_dueDate!) : ''),
               ),
             ),
             const SizedBox(height: 20),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _createTask,
-                child: const Text('Create Task'),
+                onPressed:
+                taskProvider.loading ? null : () => _createTask(),
+                child: taskProvider.loading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Create Task'),
               ),
             ),
+            const SizedBox(height: 30),
+
+            const Text(
+              'Task List',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+
+            if (taskProvider.loading)
+              const Center(child: CircularProgressIndicator())
+            else if (taskProvider.tasks.isEmpty)
+              const Text('No tasks found')
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: taskProvider.tasks.length,
+                itemBuilder: (context, index) {
+                  final task = taskProvider.tasks[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 5),
+                    child: ListTile(
+                      title: Text(task['title'] ?? ''),
+                      subtitle: Text(
+                        'Priority: ${task['priority']}, Due: ${task['due_date']}',
+                      ),
+                      leading: const Icon(
+                        Icons.task_alt_outlined,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                  );
+                },
+              ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.task_alt_outlined),
-            label: 'Task',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }

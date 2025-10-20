@@ -14,7 +14,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? userName;
-  String? userEmail;
   int _selectedIndex = 0;
 
   @override
@@ -30,33 +29,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = await AuthStorage.getUser();
     setState(() {
       userName = user?['name'] ?? 'Unknown';
-      userEmail = user?['email'] ?? '';
     });
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 1: // Task
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TaskScreen()),
-        );
-        break;
-      case 2: // Profile
-        setState(() {
-          _selectedIndex = 2;
-        });
-        break;
-    }
+    setState(() => _selectedIndex = index);
   }
 
   Future<void> _showCreateProjectDialog(BuildContext context) async {
     final nameController = TextEditingController();
     final descController = TextEditingController();
+
+
+    //Dialogue Box
 
     await showDialog(
       context: context,
@@ -71,7 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             TextField(
               controller: descController,
-              decoration: const InputDecoration(labelText: 'Description (optional)'),
+              decoration:
+              const InputDecoration(labelText: 'Description (optional)'),
             ),
           ],
         ),
@@ -84,12 +70,17 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               final name = nameController.text.trim();
               if (name.isEmpty) return;
+
               final provider = context.read<ProjectProvider>();
-              final success = await provider.addProject(name, descController.text.trim());
+              final success =
+              await provider.addProject(name, descController.text.trim());
+
               if (success && context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Project created successfully')),
+                  const SnackBar(
+                    content: Text('Project created successfully'),
+                  ),
                 );
               }
             },
@@ -107,24 +98,41 @@ class _HomeScreenState extends State<HomeScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (provider.projects.isEmpty) {
-          return const Center(child: Text('No projects found.'));
+          return const Center(
+            child: Text(
+              'No projects found.',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          );
         }
         return RefreshIndicator(
           onRefresh: provider.fetchProjects,
           child: ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
             itemCount: provider.projects.length,
             itemBuilder: (context, index) {
               final p = provider.projects[index];
               return Card(
-                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 3,
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: ListTile(
-                  title: Text(p['name'] ?? ''),
-                  subtitle: Text(p['description'] ?? ''),
+                  title: Text(
+                    p['name'] ?? '',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                  subtitle: Text(
+                    p['description']?.isNotEmpty == true
+                        ? p['description']
+                        : 'No description',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
                   trailing: Text(
                     p['created_at']?.toString().substring(0, 10) ?? '',
-                    style: const TextStyle(color: Colors.grey),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ),
               );
@@ -136,37 +144,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _homeTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          Text(
-            'Welcome, ${userName ?? ''}!',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Text(
+            'Welcome, ${userName ?? ''} 👋',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 10),
-          Text(
-            'Email: ${userEmail ?? ''}',
-            style: const TextStyle(fontSize: 18),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () => _showCreateProjectDialog(context),
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('Create Project'),
-          ),
-          const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 10),
-          const Text(
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 0, 8),
+          child: Text(
             'Your Projects',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(height: 400, child: _projectsList()),
-        ],
-      ),
+        ),
+        Expanded(child: _projectsList()),
+      ],
     );
   }
 
@@ -174,6 +177,8 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (_selectedIndex) {
       case 0:
         return _homeTab();
+      case 1:
+        return const TaskScreen();
       case 2:
         return const ProfileScreen();
       default:
@@ -205,6 +210,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: _buildBody(),
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton(
+        onPressed: () => _showCreateProjectDialog(context),
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add, color: Colors.white),
+      )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
